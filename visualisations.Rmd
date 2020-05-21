@@ -1,0 +1,54 @@
+---
+title: "Performance visualisations"
+author: "Anita Kurm"
+date: "5/21/2020"
+output: html_document
+---
+# Set-up, data import
+```{r}
+pacman::p_load(tidyverse, rjson)
+df <- read_csv("twitterQA_berts.csv")
+tok_times <- fromJSON(file = "tokenizer_loading.txt")
+mod_times <- fromJSON(file = "model_loading.txt")
+```
+
+# Evaluate data loss and processing time
+```{r}
+# Reshape data
+l_bert <- df %>% 
+  select(qid, 'Answer_pred' = L_BERT_answer, 'Time' = L_BERT_time) %>% 
+  mutate(Model = 'Large', Tok_time = tok_times$L_BERT, Load_time = mod_times$L_BERT)
+
+d_bert <- df %>% 
+  select(qid,'Answer_pred' = DistilBERT_answer, 'Time' = DistilBERT_time)%>% 
+  mutate(Model = 'Distilled', Tok_time = tok_times$DistilBERT, Load_time = mod_times$DistilBERT)
+
+data <- rbind(l_bert, d_bert)
+
+# Summarise 
+summary <- data %>%
+  mutate(Tok_time = as.numeric(Tok_time),
+         Load_time = as.numeric(Load_time)) %>% 
+  group_by(Model) %>% 
+  summarise(Missing = sum(is.na(Answer_pred)),
+            Answered = sum(!is.na(Answer_pred)),
+            'Average time' = mean(Time),
+            'Max time' = max(Time),
+            'Min time' = min(Time),
+            'Total time' = sum(Time),
+            'Tokenizer loading time' = max(Tok_time),
+            'Model loading time' = max(Load_time),
+            'Total time with loading' = sum(Time) + max(Tok_time)+ max(Load_time)) %>% 
+   mutate_if(is.numeric, round, 3)
+
+summary
+```
+
+Get a dataframe with both answers present:
+```{r}
+df_present <- df %>% 
+  filter(!is.na(L_BERT_answer) & !is.na(DistilBERT_answer))
+
+write_csv(df_present, "tweetQA_bothpresent.csv")
+```
+
