@@ -1,0 +1,90 @@
+---
+title: "BLEU visualizations"
+author: "Maris Sala"
+date: "5/22/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Read in the BLEU data and combine them to one dataframe
+```{r}
+bert = read.csv("bert_bleus.csv")
+distil = read.csv("distil_bleus.csv")
+
+bert['Model'] = 'BERT'
+distil['Model'] = 'DistilBERT'
+
+data = rbind(bert, distil)
+
+library(tidyverse)
+
+data = data %>% 
+  rename(
+    "1_gram" = X1.gram,
+    "2_gram" = X2.gram,
+    "3_gram" = X3.gram,
+    "4_gram" = X4.gram
+    )
+```
+
+```{r}
+library(ggplot2)
+library(plyr)
+
+ggplot(data, aes("1_gram")) +
+  geom_density() +
+  ylim(0,3)
+mu <- ddply(data, "Model", summarise, grp.mean=mean(`1_gram`))
+n1 =ggplot(data, aes(x=data$`1_gram`, fill=Model)) +
+  geom_density(col = NA, alpha=0.5, position="identity") +
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=Model),
+             linetype="dashed") +
+  ylim(0,4.5) +
+  theme_bw()
+mu <- ddply(data, "Model", summarise, grp.mean=mean(`2_gram`))
+n2 =ggplot(data, aes(x=data$`2_gram`, fill=Model)) +
+  geom_density(col = NA, alpha=0.5, position="identity") +
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=Model),
+             linetype="dashed") +
+  ylim(0,4.5) +
+  theme_bw()
+
+n3 = ggplot(data, aes(x=data$`3_gram`, fill=Model)) +
+  geom_histogram(col = NA, alpha=0.5, position="identity")
+n4 = ggplot(data, aes(x=data$`4_gram`, fill=Model)) +
+  geom_histogram(col = NA, alpha=0.5, position="identity")
+
+gridExtra::grid.arrange(n1,n2,nrow=2)#,n3,n4)
+
+```
+
+```{r}
+ggplot(distil, aes(X1.gram)) +
+  geom_histogram()
+```
+
+METEOR scores
+
+```{r}
+bert2 = read.csv("bert_meteors.csv")
+distil2 = read.csv("distil_meteors.csv")
+
+bert2['Model'] = 'BERT'
+distil2['Model'] = 'DistilBERT'
+
+data2 = rbind(bert2, distil2)
+
+```
+
+```{r}
+mu <- ddply(data2, "Model", summarise, grp.mean=mean(METEOR))
+ggplot(data2, aes(x=METEOR, fill=Model)) +
+  geom_histogram(col = NA, alpha=0.5, position="identity") +
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=Model),
+             linetype="dashed") +
+  theme_bw()
+```
+
