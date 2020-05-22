@@ -6,49 +6,151 @@ output: html_document
 ---
 # Set-up, data import
 ```{r}
-pacman::p_load(tidyverse, rjson)
+pacman::p_load(tidyverse, rjson, extrafont)
+font_import() # remember to press y in console
 df <- read_csv("twitterQA_berts.csv")
 tok_times <- fromJSON(file = "tokenizer_loading.txt")
 mod_times <- fromJSON(file = "model_loading.txt")
+
+# Define color palette
+cp <- c("grey23","aquamarine2")
+
+# See available fonts
+fonts()
 ```
 
-# Evaluate data loss and processing time
+# Data pre-processing
 ```{r}
-# Reshape data
+# Reshape data by creating two separate dfs and binding together
 l_bert <- df %>% 
-  select(qid, 'Answer_pred' = L_BERT_answer, 'Time' = L_BERT_time) %>% 
-  mutate(Model = 'Large', Tok_time = tok_times$L_BERT, Load_time = mod_times$L_BERT)
+  select(qid,
+         X1,
+         'Answer_pred' = L_BERT_answer,
+         'Time' = L_BERT_time) %>% 
+  mutate(A_len = str_length(Answer_pred),
+         Model = 'Large',
+         Tok_time = tok_times$L_BERT,
+         Load_time = mod_times$L_BERT)
 
 d_bert <- df %>% 
-  select(qid,'Answer_pred' = DistilBERT_answer, 'Time' = DistilBERT_time)%>% 
-  mutate(Model = 'Distilled', Tok_time = tok_times$DistilBERT, Load_time = mod_times$DistilBERT)
+  select(qid,
+         X1,
+         'Answer_pred' = DistilBERT_answer,
+         'Time' = DistilBERT_time) %>% 
+  mutate(A_len = str_length(Answer_pred),
+         Model = 'Distilled', 
+         Tok_time = tok_times$DistilBERT, 
+         Load_time = mod_times$DistilBERT)
 
 data <- rbind(l_bert, d_bert)
 
+# remove an outlier
+data <- data %>% 
+  filter(Time < 10)
+```
+
+Get a dataframe with both answers present:
+```{r}
+df_present <- df %>% 
+  filter(!is.na(L_BERT_answer) & !is.na(DistilBERT_answer)) %>% 
+  mutate('')
+#write_csv(df_present, "tweetQA_bothpresent.csv")
+
+d_present <- data %>% 
+  filter(!is.na(data$Answer_pred))
+```
+
+# Evaluate data loss and processing time
+Processing time summary (full dataset):
+```{r}
 # Summarise 
-summary <- data %>%
+time_summary <- data %>%
   mutate(Tok_time = as.numeric(Tok_time),
          Load_time = as.numeric(Load_time)) %>% 
   group_by(Model) %>% 
   summarise(Missing = sum(is.na(Answer_pred)),
             Answered = sum(!is.na(Answer_pred)),
-            'Average time' = mean(Time),
+            Mean_time = mean(Time),
             'Max time' = max(Time),
             'Min time' = min(Time),
             'Total time' = sum(Time),
             'Tokenizer loading time' = max(Tok_time),
             'Model loading time' = max(Load_time),
             'Total time with loading' = sum(Time) + max(Tok_time)+ max(Load_time)) %>% 
-   mutate_if(is.numeric, round, 3)
+  mutate_if(is.numeric, round, 3)
 
-summary
+time_summary
 ```
 
-Get a dataframe with both answers present:
+
+
+# Visualisations
+Time by model
 ```{r}
-df_present <- df %>% 
-  filter(!is.na(L_BERT_answer) & !is.na(DistilBERT_answer))
+# Box plot
+ggplot(d_present, aes(Model, Time, color = Model))+
+  geom_boxplot(outlier.shape = NA)+
+  theme_bw()+
+  scale_colour_manual(values=cp)+
+  scale_fill_manual(values=cp)+
+  labs(x = "Model", 
+       y = "Time/Question", 
+       title = "Processing Time by Model",
+       subtitle = "(Per question in seconds)")+
+  theme(text = element_text(family ="Raleway"))
 
-write_csv(df_present, "tweetQA_bothpresent.csv")
+d_present$Model <- as.factor(d_present$Model) 
+
+
+# Density plot
+density <- ggplot(d_present, aes(Time, fill = Model))+
+  geom_vline(data=time_summary, aes(xintercept=Mean_time, color=Model),
+             linetype="dashed")+
+  geom_density(col = NA, alpha = 0.8)+
+  theme_bw()+
+  scale_colour_manual(values=cp)+
+  scale_fill_manual(values=cp)+
+  labs( x = "Time/Question", 
+        y = "Density",
+       title = "Distribution of processing times in Models",
+       subtitle = "(Per question in seconds)")+
+  theme(text = element_text(family ="Raleway"))
+
+density
+#Cumulative processing time plot
+cumsum_l <- cumsum(l_bert$Time) 
+cumsum_d <- cumsum(d_bert$Time) 
+
+cumulative <-  ggplot()+
+  geom_area(aes(1:length(cumsum_l), cumsum_l), fill = "aquamarine2", alpha = 0.8)+
+  geom_area(aes(1:length(cumsum_d), cumsum_d), fill = "grey23", alpha = 0.8)+
+  theme_bw()+
+  labs(x = "Length of Dataset", 
+       y = "Accumulated Processing Time", 
+       title = "Accumulated Processing Time by Length of Dataset",
+       subtitle = "(in seconds)")+
+  theme(text = element_text(family ="Raleway"))
+
+cumulative
+
+
 ```
+
+Meaningless:
+Time by text length
+```{r}
+ggplot(d_present, aes(A_len, Time))+
+  geom_point()+
+  geom_smooth()
+
+ggplot(d_present, aes(Q_len, Time))+
+  geom_point()+
+  geom_smooth()
+
+ggplot(d_present, aes(C_len, Time))+
+  geom_point()+
+  geom_smooth()
+```
+
+
 
