@@ -40,7 +40,7 @@ ggplot(data, aes(x=METEOR, fill=Model)) +
   geom_vline(data=mu, aes(xintercept=grp.mean, color=Model),
              linetype="dashed") +
   theme_bw() +
-  xlim(0,1) + ylim(0,3.5)
+  ylim(0,3.5)
 ```
 
 Short
