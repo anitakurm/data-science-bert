@@ -9,82 +9,59 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Read in the BLEU data and combine them to one dataframe
+Applying METEOR for long answers dataset and GLEU for short answers dataset
 ```{r}
-bert = read.csv("bert_bleus.csv")
-distil = read.csv("distil_bleus.csv")
+# Read in the data
+long = read.csv("df_long_answers.csv")
+short = read.csv("df_short_answers.csv")
 
+# Take only necessary columns
+long = select(long,7:10)
+short = select(short,7:10)
+```
+
+Long
+```{r}
+bert = select(long,1,3)
 bert['Model'] = 'BERT'
+names(bert)[1] <- "METEOR"
+names(bert)[2] <- "GLEU"
+
+distil = select(long, 2,4)
 distil['Model'] = 'DistilBERT'
+names(distil)[1] <- "METEOR"
+names(distil)[2] <- "GLEU"
 
 data = rbind(bert, distil)
 
-library(tidyverse)
-
-data = data %>% 
-  rename(
-    "1_gram" = X1.gram,
-    "2_gram" = X2.gram,
-    "3_gram" = X3.gram,
-    "4_gram" = X4.gram
-    )
-```
-
-```{r}
-library(ggplot2)
-library(plyr)
-
-ggplot(data, aes("1_gram")) +
-  geom_density() +
-  ylim(0,3)
-mu <- ddply(data, "Model", summarise, grp.mean=mean(`1_gram`))
-n1 =ggplot(data, aes(x=data$`1_gram`, fill=Model)) +
+mu <- ddply(data, "Model", summarise, grp.mean=mean(METEOR))
+ggplot(data, aes(x=METEOR, fill=Model)) +
   geom_density(col = NA, alpha=0.5, position="identity") +
   geom_vline(data=mu, aes(xintercept=grp.mean, color=Model),
              linetype="dashed") +
-  ylim(0,4.5) +
-  theme_bw()
-mu <- ddply(data, "Model", summarise, grp.mean=mean(`2_gram`))
-n2 =ggplot(data, aes(x=data$`2_gram`, fill=Model)) +
+  theme_bw() +
+  ylim(0,3.5)
+```
+
+Short
+```{r}
+bert = select(short,1,3)
+bert['Model'] = 'BERT'
+names(bert)[1] <- "METEOR"
+names(bert)[2] <- "GLEU"
+
+distil = select(short, 2,4)
+distil['Model'] = 'DistilBERT'
+names(distil)[1] <- "METEOR"
+names(distil)[2] <- "GLEU"
+
+data = rbind(bert, distil)
+
+mu <- ddply(data, "Model", summarise, grp.mean=mean(GLEU))
+ggplot(data, aes(x=GLEU, fill=Model)) +
   geom_density(col = NA, alpha=0.5, position="identity") +
   geom_vline(data=mu, aes(xintercept=grp.mean, color=Model),
              linetype="dashed") +
-  ylim(0,4.5) +
-  theme_bw()
-
-n3 = ggplot(data, aes(x=data$`3_gram`, fill=Model)) +
-  geom_histogram(col = NA, alpha=0.5, position="identity")
-n4 = ggplot(data, aes(x=data$`4_gram`, fill=Model)) +
-  geom_histogram(col = NA, alpha=0.5, position="identity")
-
-gridExtra::grid.arrange(n1,n2,nrow=2)#,n3,n4)
-
+  theme_bw() +
+  xlim(0,1) + ylim(0,3.5)
 ```
-
-```{r}
-ggplot(distil, aes(X1.gram)) +
-  geom_histogram()
-```
-
-METEOR scores
-
-```{r}
-bert2 = read.csv("bert_meteors.csv")
-distil2 = read.csv("distil_meteors.csv")
-
-bert2['Model'] = 'BERT'
-distil2['Model'] = 'DistilBERT'
-
-data2 = rbind(bert2, distil2)
-
-```
-
-```{r}
-mu <- ddply(data2, "Model", summarise, grp.mean=mean(METEOR))
-ggplot(data2, aes(x=METEOR, fill=Model)) +
-  geom_histogram(col = NA, alpha=0.5, position="identity") +
-  geom_vline(data=mu, aes(xintercept=grp.mean, color=Model),
-             linetype="dashed") +
-  theme_bw()
-```
-
