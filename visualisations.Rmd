@@ -2,22 +2,25 @@
 title: "Performance visualisations"
 author: "Anita Kurm"
 date: "5/21/2020"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 # Set-up, data import
 ```{r}
 pacman::p_load(tidyverse, rjson, extrafont)
-font_import(prompt = FALSE, pattern = "Times")
+font_import(prompt = FALSE, pattern = "Raleway") #you need to download the font for that 
 df <- read_csv("twitterQA_berts.csv")
 tok_times <- fromJSON(file = "tokenizer_loading.txt")
 mod_times <- fromJSON(file = "model_loading.txt")
 
 # Define color palette
-cp <- c("grey19","aquamarine3")
+cp <- c("aquamarine3", "grey19")
 
 # See available fonts
 #fonts()
 ```
+
 # Initial dataset stats
 ```{r}
 init <- read_csv("initial11778.csv")
@@ -38,7 +41,7 @@ l_bert <- df %>%
          'Answer_pred' = L_BERT_answer,
          'Time' = L_BERT_time) %>% 
   mutate(A_len = str_length(Answer_pred),
-         Model = 'Large',
+         Model = "BERT",
          Tok_time = tok_times$L_BERT,
          Load_time = mod_times$L_BERT)
 
@@ -48,7 +51,7 @@ d_bert <- df %>%
          'Answer_pred' = DistilBERT_answer,
          'Time' = DistilBERT_time) %>% 
   mutate(A_len = str_length(Answer_pred),
-         Model = 'Distilled', 
+         Model = "DistilBERT", 
          Tok_time = tok_times$DistilBERT, 
          Load_time = mod_times$DistilBERT)
 
@@ -92,12 +95,14 @@ Processing time summary (all present dataset):
 ```{r}
 # Summarise 
 time_summary <- d_present %>%
+  filter(Time<10) %>% 
   mutate(Tok_time = as.numeric(Tok_time),
          Load_time = as.numeric(Load_time)) %>% 
   group_by(Model) %>% 
   summarise(Missing = sum(is.na(Answer_pred)),
             Answered = sum(!is.na(Answer_pred)),
             Mean_time = mean(Time),
+            "sd time" = sd(Time),
             'Max time' = max(Time),
             'Min time' = min(Time),
             'Total time' = sum(Time),
@@ -112,12 +117,14 @@ time_summary
 # Visualisations
 Time by model
 ```{r}
+d_present <- d_present %>% 
+  filter(Time<10)
 # Density plot
 density <- ggplot(d_present, aes(Time, fill = Model))+
   geom_vline(data=time_summary, aes(xintercept=Mean_time, color=Model),
              linetype="dashed")+
   geom_text(aes(x=0.080, label="\nMean: 0.080", y=20), colour="grey23", angle=90, size=4, family = "Raleway") +
-  geom_text(aes(x=0.429, label="\nMean: 0.429", y=20), colour="aquamarine4", angle=90, size=4, family = "Raleway")+
+  geom_text(aes(x=0.419, label="\nMean: 0.419", y=20), colour="aquamarine4", angle=90, size=4, family = "Raleway")+
   geom_density(col = NA, alpha = 0.7)+
   theme_bw()+
   scale_colour_manual(values=cp)+
@@ -144,34 +151,30 @@ cumulative <-  ggplot()+
        y = "Total Inference Time", 
        title = "Accumulated inference time by the length of the dataset",
        subtitle = "(Time in seconds)")+
-  theme(text = element_text(family = "Raleway"))+
+  theme(text = element_text(family = "Raleway"), legend.title=element_blank())+
   ylim(0,5500)
 
 cumulative
 
+time_plots <- gridExtra::grid.arrange(density,cumulative, nrow=2)
+ggsave("timeplots.png", time_plots, width = 8, height = 6)
+```
+
+## Linear models for stats
+```{r}
+# Predict time by model
+time_by_model <- lm(Time ~ Model, d_present) 
+summary(time_by_model)
+
+t.test(Time~Model, d_present)
 
 ```
 
-Meaningless:
-Time by text length
+
+
+# Manual evaliation of performance metrics GLEU and METEOR
 ```{r}
-ggplot(d_present, aes(A_len, Time))+
-  geom_point()+
-  geom_smooth()
-
-ggplot(d_present, aes(Q_len, Time))+
-  geom_point()+
-  geom_smooth()
-
-ggplot(d_present, aes(C_len, Time))+
-  geom_point()+
-  geom_smooth()
-```
-
-
-Sanity check
-```{r}
-d100 <- read_csv2("/Users/anitakurm/Downloads/df_samples_scores100_judged.csv")
+d100 <- read_csv2("df_samples_scores100_judged.csv")
 
 ```
 
@@ -211,13 +214,6 @@ d100_compare %>%
             'METEOR correct' = sum(Meteor_correct))
 ```
 
-# Gather citations
-```{r}
-citation()
-citation("tidyverse")
-citation("rjson")
-citation("extrafont")
-```
 
 # Applying METEOR for long answers dataset and GLEU for short answers dataset
 ```{r}
@@ -227,6 +223,9 @@ short = read.csv("df_short_answers.csv")
 # Take only necessary columns
 long = select(long,7:10)
 short = select(short,7:10)
+
+# re-define color palette so it's consistent across plots
+cp <- c("aquamarine3", "grey19")
 ```
 
 Long
@@ -240,13 +239,25 @@ distil['Model'] = 'DistilBERT'
 names(distil)[1] <- "METEOR"
 names(distil)[2] <- "GLEU"
 data = rbind(bert, distil)
-mu <- ddply(data, "Model", summarise, grp.mean=mean(METEOR))
-ggplot(data, aes(x=METEOR, fill=Model)) +
-  geom_density(col = NA, alpha=0.5, position="identity") +
+mu <- plyr::ddply(data, "Model", summarise, grp.mean=mean(METEOR))
+mu
+meteor <- ggplot(data, aes(x=METEOR, fill=Model)) +
+  geom_density(col = NA, alpha=0.6, position="identity") +
   geom_vline(data=mu, aes(xintercept=grp.mean, color=Model),
              linetype="dashed") +
+  geom_text(aes(x=0.387, label="\nMean: 0.387", y=2.5), colour="grey23", angle=90, size=4, family = "Raleway") +
+  geom_text(aes(x=0.433	, label="\nMean: 0.433	", y=2.5), colour="aquamarine4", angle=90, size=4, family = "Raleway")+
   theme_bw() +
-  ylim(0,3.5)
+  ylim(0,3.5)+
+  theme(text = element_text(family = "Raleway"))+
+  scale_colour_manual(values=cp)+
+  scale_fill_manual(values=cp)+
+  labs(x = "METEOR score", 
+       y = "Density")
+
+meteor_by_model <- lm(METEOR ~ Model, data)
+summary(meteor_by_model)
+t.test(METEOR ~ Model, data)
 ```
 
 Short
@@ -260,11 +271,42 @@ distil['Model'] = 'DistilBERT'
 names(distil)[1] <- "METEOR"
 names(distil)[2] <- "GLEU"
 data = rbind(bert, distil)
-mu <- ddply(data, "Model", summarise, grp.mean=mean(GLEU))
-ggplot(data, aes(x=GLEU, fill=Model)) +
+mu <- plyr::ddply(data, "Model", summarise, grp.mean=mean(GLEU))
+mu
+
+gleu <- ggplot(data, aes(x=GLEU, fill=Model)) +
   geom_density(col = NA, alpha=0.5, position="identity") +
   geom_vline(data=mu, aes(xintercept=grp.mean, color=Model),
              linetype="dashed") +
+  geom_text(aes(x=0.535, label="\nMean: 0.535", y=2.5), colour="grey23", angle=90, size=4, family = "Raleway") +
+  geom_text(aes(x=0.614	, label="\nMean: 0.614	", y=2.5), colour="aquamarine4", angle=90, size=4, family = "Raleway")+
   theme_bw() +
-  xlim(0,1) + ylim(0,3.5)
+  xlim(0,1) + 
+  ylim(0,3.5)+
+  theme(text = element_text(family = "Raleway"))+
+  scale_colour_manual(values=cp)+
+  scale_fill_manual(values=cp)+
+  labs(x = "GLEU score", 
+       y = "Density")
+
+gleu_by_model <- lm(GLEU ~ Model, data)
+summary(gleu_by_model)
+
+t.test(GLEU ~ Model, data)
+  
+```
+
+```{r}
+met_gl <- gridExtra::grid.arrange(gleu, meteor, nrow = 2)
+ggsave("meteor_gleu.png", met_gl,width = 9, height = 8)
+```
+
+
+
+# Gather citations
+```{r}
+citation()
+citation("tidyverse")
+citation("rjson")
+citation("extrafont")
 ```
