@@ -1,7 +1,7 @@
 # DistilBERT vs BERT on TweetQA data ⚗️
 Code for our exam project for the Data Science course as a part of MSc in Cognitive Science at Aarhus University. 
 
-In this paper the large version of BERT (Bidirectional Encoder Representations from Transformers by [Huggingface 🤗](https://github.com/huggingface/transformers)) is compared to its smaller knowledge-distilled version DistilBERT. Both models were fine-tuned to the SQuAD 1.1 task. The aim was to see how well these pre-made models perform on a new dataset that hasn’t been part of their training nor fine-tuning data - the [TweetQA dataset](https://tweetqa.github.io/) by Xiong et al. (2019).
+In this [paper](pdfs/BERT_DistilBERT_Anita_Maris_exam.pdf) the large version of BERT (Bidirectional Encoder Representations from Transformers by [Huggingface 🤗](https://github.com/huggingface/transformers)) is compared to its smaller knowledge-distilled version DistilBERT. Both models were fine-tuned to the SQuAD 1.1 task. The aim was to see how well these pre-made models perform on a new dataset that hasn’t been part of their training nor fine-tuning data - the [TweetQA dataset](https://tweetqa.github.io/) by Xiong et al. (2019).
 
 ## Getting Started
 
