@@ -10,9 +10,10 @@ output:
 ```{r}
 pacman::p_load(tidyverse, rjson, extrafont)
 font_import(prompt = FALSE, pattern = "Raleway") #you need to download the font for that 
-df <- read_csv("twitterQA_berts.csv")
-tok_times <- fromJSON(file = "tokenizer_loading.txt")
-mod_times <- fromJSON(file = "model_loading.txt")
+df <- read_csv("processed_data/twitterQA_berts.csv")   # processing time data 
+init <- read_csv("processed_data/initial11778.csv")   # initial dataset 
+tok_times <- fromJSON(file = "processed_data/tokenizer_loading.txt")   # tokenizer loading time
+mod_times <- fromJSON(file = "processed_data/model_loading.txt")       # model loading time
 
 # Define color palette
 cp <- c("aquamarine3", "grey19")
@@ -23,7 +24,6 @@ cp <- c("aquamarine3", "grey19")
 
 # Initial dataset stats
 ```{r}
-init <- read_csv("initial11778.csv")
 init %>% 
   mutate(Gold1_length = sapply(strsplit(Gold_1, " "), length),
          Gold2_length = ifelse(is.na(Gold_2), 0, sapply(strsplit(Gold_2, " "), length)),
@@ -63,7 +63,7 @@ Get a dataframe with both answers present:
 ```{r}
 df_present <- df %>% 
   filter(!is.na(L_BERT_answer) & !is.na(DistilBERT_answer))
-#write_csv(df_present, "tweetQA_bothpresent.csv")
+#write_csv(df_present, "processed_data/tweetQA_bothpresent.csv")
 
 d_present <- data %>% 
   filter(!is.na(data$Answer_pred))
@@ -95,7 +95,7 @@ Processing time summary (all present dataset):
 ```{r}
 # Summarise 
 time_summary <- d_present %>%
-  filter(Time<10) %>% 
+  filter(Time<10) %>%    # remove an outlier of 114s
   mutate(Tok_time = as.numeric(Tok_time),
          Load_time = as.numeric(Load_time)) %>% 
   group_by(Model) %>% 
@@ -119,6 +119,7 @@ Time by model
 ```{r}
 d_present <- d_present %>% 
   filter(Time<10)
+
 # Density plot
 density <- ggplot(d_present, aes(Time, fill = Model))+
   geom_vline(data=time_summary, aes(xintercept=Mean_time, color=Model),
@@ -157,7 +158,7 @@ cumulative <-  ggplot()+
 cumulative
 
 time_plots <- gridExtra::grid.arrange(density,cumulative, nrow=2)
-ggsave("timeplots.png", time_plots, width = 8, height = 6)
+ggsave("Plots/timeplots.png", time_plots, width = 8, height = 6)
 ```
 
 ## Linear models for stats
@@ -174,7 +175,7 @@ t.test(Time~Model, d_present)
 
 # Manual evaliation of performance metrics GLEU and METEOR
 ```{r}
-d100 <- read_csv2("df_samples_scores100_judged.csv")
+d100 <- read_csv2("processed_data/df_samples_scores100_judged.csv")
 
 ```
 
@@ -215,11 +216,12 @@ d100_compare %>%
 ```
 
 
-# Applying METEOR for long answers dataset and GLEU for short answers dataset
+# Applying METEOR for long answers (3+ words) dataset and GLEU for short answers (max 2 words) dataset
 ```{r}
 # Read in the data
-long = read.csv("df_long_answers.csv")
-short = read.csv("df_short_answers.csv")
+long = read.csv("processed_data/df_long_answers.csv")
+short = read.csv("processed_data/df_short_answers.csv")
+
 # Take only necessary columns
 long = select(long,7:10)
 short = select(short,7:10)
@@ -298,7 +300,7 @@ t.test(GLEU ~ Model, data)
 
 ```{r}
 met_gl <- gridExtra::grid.arrange(gleu, meteor, nrow = 2)
-ggsave("meteor_gleu.png", met_gl,width = 9, height = 8)
+ggsave("Plots/meteor_gleu.png", met_gl,width = 9, height = 8)
 ```
 
 

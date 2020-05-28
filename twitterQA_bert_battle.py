@@ -130,10 +130,10 @@ tokenizer_loading_times = {
 }
 
 # Write models’ inference and inference time outputs down
-big_df.to_csv('twitterQA_berts.csv')
+big_df.to_csv('processed_data/twitterQA_berts.csv')
 
-with open('model_loading.txt', 'w') as file:
+with open('processed_data/model_loading.txt', 'w') as file:
     file.write(json.dumps(model_loading_times))
 
-with open('tokenizer_loading.txt', 'w') as file:
+with open('processed_data/tokenizer_loading.txt', 'w') as file:
     file.write(json.dumps(tokenizer_loading_times))
